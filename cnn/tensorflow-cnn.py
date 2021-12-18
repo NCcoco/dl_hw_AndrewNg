@@ -11,6 +11,7 @@ from cnn_utils import *
 from tensorflow import keras
 import os
 
+
 base_path = os.path.abspath(".")
 
 # 加载数据集
@@ -18,9 +19,9 @@ base_path = os.path.abspath(".")
 X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, classes = load_dataset()
 
 # Example of a picture
-index = 6
-plt.imshow(X_train_orig[index])
-print ("y = " + str(np.squeeze(Y_train_orig[:, index])))
+# index = 6
+# plt.imshow(X_train_orig[index])
+# print ("y = " + str(np.squeeze(Y_train_orig[:, index])))
 
 X_train = X_train_orig/255.
 X_test = X_test_orig/255.
@@ -43,7 +44,7 @@ def initialize_parameters():
     Returns:
     parameters -- a dictionary of tensors containing W1, W2
     """
-    gu = tf.initializers.GlorotUniform(seed=1)
+    gu = tf.initializers.GlorotUniform()
     
     ### START CODE HERE ### (approx. 2 lines of code)
     W1 = tf.Variable(name="W1", initial_value=gu(shape=[4, 4, 3, 8]))
@@ -75,24 +76,24 @@ def forward_propagation(X, parameters):
     
     # Retrieve the parameters from the dictionary "parameters" 
     W1 = parameters['W1'] # 用于卷积运算
-    W2 = parameters['W2'] # 用于池化运算
+    W2 = parameters['W2'] # 用于第二次卷积
     
     # 首先进行卷积运算
-    Z1 = tf.nn.conv2d(X, W1, strides=[1, 1, 1, 1], padding='SAME')
+    Z1 = tf.nn.conv2d(X, W1, strides=1, padding='SAME')
     # 激活
     A1 = tf.nn.relu(Z1)
     # 池化
-    P1 = tf.nn.max_pool(input=A1, ksize=[1,8,8,1], strides=[1,8,8,1], padding='SAME')
+    P1 = tf.nn.max_pool2d(input=A1, ksize=[1,8,8,1], strides=[1,8,8,1], padding='SAME')
     # 第二次卷积
-    Z2 = tf.nn.conv2d(P1, W2, strides=[1,1,1,1], padding='SAME')
+    Z2 = tf.nn.conv2d(P1, W2, strides=1, padding='SAME')
     # 激活
     A2 = tf.nn.relu(Z2)
     # 池化
-    P2 = tf.nn.max_pool(A2, ksize=[1, 4, 4, 1], strides=[1,4,4,1], padding='SAME')
+    P2 = tf.nn.max_pool2d(A2, ksize=[1, 4, 4, 1], strides=[1,4,4,1], padding='SAME')
     # 转换为1维向量
     P2 = tf.keras.layers.Flatten()(P2)
     # 全联接
-    Z3 = tf.keras.layers.Dense(6, activation=None)(P2)
+    Z3 = tf.keras.layers.Dense(6, activation='softmax')(P2)
 
     return Z3
 
@@ -107,7 +108,7 @@ def compute_cost(Z3, Y):
     Returns:
     cost - Tensor of the cost function
     """
-    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(Z3, Y))
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=Z3, labels=Y))
 
     return cost
 
@@ -119,7 +120,7 @@ def compute_cost(Z3, Y):
 #     print("Z3 = " + str(Z3))
 #     print("cost = " + str(cost))
    
-def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0085,
+def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.00007,
           num_epochs = 400, minibatch_size = 64, print_cost = True):
     """
     Implements a three-layer ConvNet in Tensorflow:
@@ -131,16 +132,18 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0085,
     costs = []                                        # To keep track of the cost
     
     # Create Placeholders of the correct shape
-
     # Initialize parameters
     ### START CODE HERE ### (1 line)
     parameters = initialize_parameters()
+    param2 = [parameters["W1"], parameters["W2"]]
     ### END CODE HERE ###
-     
+    
+    num_minibatches = int(m / minibatch_size) # number of minibatches of size minibatch_size in the train set
+    
     for epoch in range(num_epochs):
 
         minibatch_cost = 0.
-        num_minibatches = int(m / minibatch_size) # number of minibatches of size minibatch_size in the train set
+        
         seed = seed + 1
         minibatches = random_mini_batches(X_train, Y_train, minibatch_size, seed)
 
@@ -151,18 +154,18 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0085,
             # IMPORTANT: The line that runs the graph on a minibatch.
             # Run the session to execute the optimizer and the cost, the feedict should contain a minibatch for (X,Y).
             ### START CODE HERE ### (1 line)
+            
             with tf.GradientTape() as tape:
                 Z3 = forward_propagation(minibatch_X, parameters)
-                tf.stop_gradient(minibatch_Y)
                 cost = compute_cost(Z3, minibatch_Y)
 
             ### END CODE HERE ###
-            optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-            _ = optimizer.minimize(cost, var_list=parameters, tape=tape)
+            optimizer = tf.keras.optimizers.Adamax(learning_rate=learning_rate)
+            gradients = tape.gradient(target=cost, sources=param2)
+            _ = optimizer.apply_gradients(zip(gradients, param2))
             temp_cost = cost
             minibatch_cost += temp_cost / num_minibatches
             
-
         # Print the cost every epoch
         if print_cost == True and epoch % 5 == 0:
             print ("Cost after epoch %i: %f" % (epoch, minibatch_cost))
@@ -177,7 +180,6 @@ def model(X_train, Y_train, X_test, Y_test, learning_rate = 0.0085,
     plt.title("Learning rate =" + str(learning_rate))
     plt.show()
 
-    predict_op = tf.argmax(Z3, 1)
     # Calculate the correct predictions
     correct_prediction = tf.equal(tf.argmax(forward_propagation(X_train, parameters)), tf.argmax(Y_train))
     # Calculate accuracy on the test set
