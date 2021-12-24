@@ -7,8 +7,8 @@ import tensorflow.keras as keras
 import tensorflow.keras.layers as layers
 import tensorflow.keras.models as models
 
-from ..utils import compose
-from .keras_darknet19 import (DarknetConv2D, DarknetConv2D_BN_Leaky, darknet_body)
+from utils import compose
+from keras_darknet19 import (DarknetConv2D, DarknetConv2D_BN_Leaky, darknet_body)
 
 
 sys.path.append('..')

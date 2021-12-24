@@ -7,6 +7,10 @@ import tensorflow.keras as keras
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+import os
+
+base_path = os.path.abspath(".") + "/"
+
 def read_classes(classes_path):
     with open(classes_path) as f:
         class_names = f.readlines()
@@ -35,6 +39,7 @@ def scale_boxes(boxes, image_shape):
     width = image_shape[1]
     image_dims = keras.backend.stack([height, width, height, width])
     image_dims = keras.backend.reshape(image_dims, [1, 4])
+    
     boxes = boxes * image_dims
     return boxes
 
@@ -48,8 +53,8 @@ def preprocess_image(img_path, model_image_size):
     return image, image_data
 
 def draw_boxes(image, out_scores, out_boxes, out_classes, class_names, colors):
-    
-    font = ImageFont.truetype(font='font/FiraMono-Medium.otf',size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
+
+    font = ImageFont.truetype(font=base_path+'object-localization/Car detection for Autonomous Driving/font/FiraMono-Medium.otf',size=np.floor(3e-2 * image.size[1] + 0.5).astype('int32'))
     thickness = (image.size[0] + image.size[1]) // 300
 
     for i, c in reversed(list(enumerate(out_classes))):

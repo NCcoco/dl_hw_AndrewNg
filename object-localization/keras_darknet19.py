@@ -7,7 +7,7 @@ import tensorflow.keras.layers as layers
 import tensorflow.keras.models as models
 from tensorflow.keras.regularizers import l2
 
-from ..utils import compose
+from utils import compose
 
 # Partial wrapper for Convolution2D with static default argument.
 _DarknetConv2D = partial(layers.Conv2D, padding='same')
